@@ -1,8 +1,3 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
   provider = "prisma-client-js"
   output   = "../generated/prisma"
@@ -12,321 +7,753 @@ datasource db {
   provider = "postgresql"
 }
 
-model User {
-  id            Int       @id @default(autoincrement())
-  name          String
-  email         String    @unique
-  password      String
-  phone         String    @unique
-  avatar_url    String?
-  is_active     Boolean   @default(true)
-  created_at    DateTime  @default(now())
-  updated_at    DateTime  @updatedAt
-  last_login_at DateTime?
+enum SystemRole {
+  USER
+  SUPPORT
+  PLATFORM_ADMIN
+  PLATFORM_OWNER
+}
 
-  // Relations
-  role_id     Int
-  system_role Role        @relation(fields: [role_id], references: [id])
-  stores      StoreUser[]
+enum MembershipStatus {
+  ACTIVE
+  INVITED
+  SUSPENDED
+}
+
+enum StoreStatus {
+  DRAFT
+  ACTIVE
+  SUSPENDED
+  ARCHIVED
+}
+
+enum BillingCycle {
+  MONTHLY
+  YEARLY
+}
+
+enum SubscriptionStatus {
+  TRIALING
+  ACTIVE
+  PAST_DUE
+  CANCELED
+  EXPIRED
+}
+
+enum ProductStatus {
+  DRAFT
+  ACTIVE
+  ARCHIVED
+}
+
+enum InventoryMovementType {
+  IN
+  ADJUSTMENT_IN
+  OUT
+  ADJUSTMENT_OUT
+  RESERVED
+  RELEASED
+  RETURNED
+}
+
+enum CustomerStatus {
+  ACTIVE
+  BLOCKED
+  ARCHIVED
+}
+
+enum CartStatus {
+  OPEN
+  CONVERTED
+  ABANDONED
+  EXPIRED
+}
+
+enum OrderSource {
+  STOREFRONT
+  ADMIN
+  MANUAL
+  INSTAGRAM
+  FACEBOOK
+  TIKTOK
+}
+
+// حالة موحدة تغطي دورة حياة الطلب والشحن بالكامل
+enum ShipmentStatus {
+  DRAFT
+  PENDING
+  CONFIRMED
+  PROCESSING
+  PREPARING
+  SHIPPED
+  IN_TRANSIT
+  OUT_FOR_DELIVERY
+  DELIVERED
+  CANCELED
+  RETURNED
+}
+
+enum PaymentStatus {
+  UNPAID
+  PENDING
+  PARTIALLY_PAID
+  PAID
+  FAILED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum PaymentMethod {
+  CASH_ON_DELIVERY
+  CARD
+  BANK_TRANSFER
+  WALLET
+  MANUAL
+}
+
+enum PaymentTransactionStatus {
+  PENDING
+  AUTHORIZED
+  CAPTURED
+  FAILED
+  CANCELED
+  REFUNDED
+  PARTIALLY_REFUNDED
+}
+
+enum AddressType {
+  SHIPPING
+  BILLING
+  OTHER
+}
+
+enum DiscountType {
+  PERCENTAGE
+  FIXED
+}
+
+model User {
+  id                  Int                 @id @default(autoincrement())
+  name                String
+  email               String              @unique
+  phone               String              @unique
+  password_hash       String
+  avatar_url          String?
+  system_role         SystemRole          @default(USER)
+  is_active           Boolean             @default(true)
+  last_login_at       DateTime?
+  created_at          DateTime            @default(now())
+  updated_at          DateTime            @updatedAt
+  memberships         StoreMembership[]
+  created_memberships StoreMembership[]   @relation("MembershipInviter")
+  inventory_actions   InventoryMovement[]
+  order_actions       OrderTimeline[]
 }
 
 model Store {
-  id                  Int     @id @default(autoincrement())
+  id                  Int                  @id @default(autoincrement())
   name                String
-  domain              String  @unique
-  custom_domain       String? @unique
+  domain              String               @unique
+  custom_domain       String?              @unique
+  status              StoreStatus          @default(DRAFT)
+  currency_code       String               @default("LYD")
+  locale              String               @default("ar-LY")
+  timezone            String               @default("Africa/Tripoli")
   logo                String?
   favicon             String?
-  is_active           Boolean @default(true)
-  meta_title          String?
   description         String?
   facebook_url        String?
   instagram_url       String?
   tiktok_url          String?
-  subscription_status String?
-
-  // Relations
-  users       StoreUser[]
-  categories  Category[]
-  products    Product[]
-  customers   Customer[]
-  orders      Order[]
-  inventories Inventory[]
+  support_email       String?
+  support_phone       String?
+  meta_title          String?
+  meta_description    String?
+  created_at          DateTime             @default(now())
+  updated_at          DateTime             @updatedAt
+  memberships         StoreMembership[]
+  roles               StoreRole[]
+  subscription        StoreSubscription?
+  categories          Category[]
+  products            Product[]
+  product_media       ProductMedia[]
+  product_options     ProductOption[]
+  product_option_vals ProductOptionValue[]
+  variants            ProductVariant[]
+  customers           Customer[]
+  customer_addresses  CustomerAddress[]
+  carts               Cart[]
+  cart_items          CartItem[]
+  orders              Order[]
+  order_items         OrderItem[]
+  coupons             Coupon[]
+  coupon_usages       CouponUsage[]
+  inventories         Inventory[]
+  inventory_moves     InventoryMovement[]
+  variant_links       VariantOptionValue[]
+  order_addresses     OrderAddress[]
+  payment_txns        PaymentTransaction[]
+  shipments           Shipment[]
+  order_timeline      OrderTimeline[]
 }
 
-model StoreUser {
-  user_id  Int
-  store_id Int
-  role_id  Int
-
-  user       User  @relation(fields: [user_id], references: [id], onDelete: Cascade)
-  store      Store @relation(fields: [store_id], references: [id], onDelete: Cascade)
-  store_role Role  @relation(fields: [role_id], references: [id])
-
-  @@id([user_id, store_id])
-  @@index([store_id])
-  @@index([user_id])
-}
-
-model Role {
-  id         Int         @id @default(autoincrement())
-  role_name  String 
-  users      User[]
-  storeUsers StoreUser[]
-}
-
-model ProductStatus {
-  id             Int       @id @default(autoincrement())
-  product_status String
-  products       Product[]
-}
-
-model OrderStatus {
-  id           Int     @id @default(autoincrement())
-  order_status String
-  orders       Order[]
-}
-
-model PaymentStatus {
-  id             Int     @id @default(autoincrement())
-  payment_status String
-  orders         Order[]
-}
-
-model MovementType {
+model SubscriptionPlan {
   id            Int                 @id @default(autoincrement())
-  movement_type String
-  movements     InventoryMovement[]
+  code          String              @unique
+  name          String
+  price_monthly Decimal
+  price_yearly  Decimal?
+  max_stores    Int?
+  max_products  Int?
+  max_staff     Int?
+  created_at    DateTime            @default(now())
+  updated_at    DateTime            @updatedAt
+  subscriptions StoreSubscription[]
 }
 
-// ==========================================
-// 3. المنتجات والمخزون والتصنيفات
-// ==========================================
+model StoreSubscription {
+  id                       Int                @id @default(autoincrement())
+  store_id                 Int                @unique
+  plan_id                  Int
+  billing_cycle            BillingCycle
+  status                   SubscriptionStatus @default(TRIALING)
+  trial_ends_at            DateTime?
+  current_period_starts_at DateTime?
+  current_period_ends_at   DateTime?
+  canceled_at              DateTime?
+  created_at               DateTime           @default(now())
+  updated_at               DateTime           @updatedAt
+  store                    Store              @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  plan                     SubscriptionPlan   @relation(fields: [plan_id], references: [id])
+
+  @@index([plan_id])
+}
+
+model Permission {
+  id          Int                   @id @default(autoincrement())
+  code        String                @unique
+  module      String
+  action      String
+  description String?
+  created_at  DateTime              @default(now())
+  updated_at  DateTime              @updatedAt
+  roles       StoreRolePermission[]
+
+  @@index([module, action])
+}
+
+model StoreRole {
+  id           Int                   @id @default(autoincrement())
+  store_id     Int
+  name         String
+  slug         String
+  description  String?
+  is_default   Boolean               @default(false)
+  is_protected Boolean               @default(false)
+  created_at   DateTime              @default(now())
+  updated_at   DateTime              @updatedAt
+  store        Store                 @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  memberships  StoreMembership[]
+  permissions  StoreRolePermission[]
+
+  @@unique([store_id, slug])
+  @@unique([id, store_id])
+  @@index([store_id, is_default])
+}
+
+model StoreRolePermission {
+  role_id       Int
+  permission_id Int
+  assigned_at   DateTime   @default(now())
+  role          StoreRole  @relation(fields: [role_id], references: [id], onDelete: Cascade)
+  permission    Permission @relation(fields: [permission_id], references: [id], onDelete: Cascade)
+
+  @@id([role_id, permission_id])
+  @@index([permission_id])
+}
+
+model StoreMembership {
+  id                 Int              @id @default(autoincrement())
+  store_id           Int
+  user_id            Int
+  role_id            Int
+  status             MembershipStatus @default(ACTIVE)
+  invited_by_user_id Int?
+  joined_at          DateTime?
+  created_at         DateTime         @default(now())
+  updated_at         DateTime         @updatedAt
+  store              Store            @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  user               User             @relation(fields: [user_id], references: [id], onDelete: Cascade)
+  role               StoreRole        @relation(fields: [role_id, store_id], references: [id, store_id])
+  invited_by         User?            @relation("MembershipInviter", fields: [invited_by_user_id], references: [id], onDelete: SetNull)
+
+  @@unique([store_id, user_id])
+  @@index([user_id])
+  @@index([role_id])
+}
 
 model Category {
-  id            Int     @id @default(autoincrement())
+  id            Int               @id @default(autoincrement())
   store_id      Int
-  category_name String
+  name          String
   slug          String
   parent_id     Int?
   image_url     String?
+  sort_order    Int               @default(0)
+  is_active     Boolean           @default(true)
+  created_at    DateTime          @default(now())
+  updated_at    DateTime          @updatedAt
+  store         Store             @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  parent        Category?         @relation("CategoryTree", fields: [parent_id], references: [id], onDelete: SetNull)
+  children      Category[]        @relation("CategoryTree")
+  product_links ProductCategory[]
 
-  store    Store             @relation(fields: [store_id], references: [id], onDelete: Cascade)
-  parent   Category?         @relation("CategoryHierarchy", fields: [parent_id], references: [id])
-  children Category[]        @relation("CategoryHierarchy")
-  products ProductCategory[]
-
-  @@index([store_id])
-  @@index([slug])
+  @@unique([store_id, slug])
+  @@unique([id, store_id])
+  @@index([store_id, parent_id])
 }
 
 model Product {
-  id                  Int       @id @default(autoincrement())
-  store_id            Int
-  product_name        String
-  slug                String
-  description         String?
-  regular_price       Decimal
-  cost_price          Decimal?
-  discount_value      Decimal?
-  discount_start_date DateTime?
-  discount_end_date   DateTime?
-  sku                 String?
-  barcode             String?
-  created_at          DateTime  @default(now())
-  updated_at          DateTime  @updatedAt
+  id                Int               @id @default(autoincrement())
+  store_id          Int
+  name              String
+  slug              String
+  description       String?
+  short_description String?
+  status            ProductStatus     @default(DRAFT)
+  base_price        Decimal
+  compare_at_price  Decimal?
+  cost_price        Decimal?
+  track_inventory   Boolean           @default(true)
+  has_variants      Boolean           @default(false)
+  is_published      Boolean           @default(false)
+  published_at      DateTime?
+  created_at        DateTime          @default(now())
+  updated_at        DateTime          @updatedAt
+  store             Store             @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  categories        ProductCategory[]
+  media             ProductMedia[]
+  options           ProductOption[]
+  variants          ProductVariant[]
+  cart_items        CartItem[]
+  order_items       OrderItem[]
 
-  // Relations
-  status_id  Int
-  status     ProductStatus     @relation(fields: [status_id], references: [id])
-  store      Store             @relation(fields: [store_id], references: [id], onDelete: Cascade)
-  categories ProductCategory[]
-  variants   ProductVariant[]
-  orderItems OrderItem[]
-
-  @@index([store_id])
-  @@index([slug])
-  @@index([sku])
-  @@index([barcode])
+  @@unique([store_id, slug])
+  @@unique([id, store_id])
+  @@index([store_id, status, is_published])
 }
 
 model ProductCategory {
+  store_id    Int
   product_id  Int
   category_id Int
+  product     Product  @relation(fields: [product_id, store_id], references: [id, store_id], onDelete: Cascade)
+  category    Category @relation(fields: [category_id, store_id], references: [id, store_id], onDelete: Cascade)
 
-  product  Product  @relation(fields: [product_id], references: [id], onDelete: Cascade)
-  category Category @relation(fields: [category_id], references: [id], onDelete: Cascade)
+  @@id([store_id, product_id, category_id])
+  @@index([category_id])
+}
 
-  @@id([product_id, category_id])
+model ProductMedia {
+  id         Int      @id @default(autoincrement())
+  store_id   Int
+  product_id Int
+  url        String
+  alt_text   String?
+  sort_order Int      @default(0)
+  created_at DateTime @default(now())
+  store      Store    @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  product    Product  @relation(fields: [product_id, store_id], references: [id, store_id], onDelete: Cascade)
+
+  @@unique([id, store_id])
+  @@index([product_id, sort_order])
+}
+
+model ProductOption {
+  id         Int                  @id @default(autoincrement())
+  store_id   Int
+  product_id Int
+  name       String
+  position   Int                  @default(0)
+  store      Store                @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  product    Product              @relation(fields: [product_id, store_id], references: [id, store_id], onDelete: Cascade)
+  values     ProductOptionValue[]
+
+  @@unique([product_id, name])
+  @@unique([id, store_id])
+}
+
+model ProductOptionValue {
+  id            Int                  @id @default(autoincrement())
+  store_id      Int
+  option_id     Int
+  value         String
+  position      Int                  @default(0)
+  store         Store                @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  option        ProductOption        @relation(fields: [option_id, store_id], references: [id, store_id], onDelete: Cascade)
+  variant_links VariantOptionValue[]
+
+  @@unique([option_id, value])
+  @@unique([id, store_id])
 }
 
 model ProductVariant {
-  id          Int      @id @default(autoincrement())
-  product_id  Int
-  sku         String
-  price       Decimal?
-  combination Json
+  id               Int                  @id @default(autoincrement())
+  store_id         Int
+  product_id       Int
+  title            String
+  sku              String
+  barcode          String?
+  price            Decimal?
+  compare_at_price Decimal?
+  cost_price       Decimal?
+  weight_grams     Int?
+  sort_order       Int                  @default(0)
+  is_default       Boolean              @default(false)
+  is_active        Boolean              @default(true)
+  created_at       DateTime             @default(now())
+  updated_at       DateTime             @updatedAt
+  store            Store                @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  product          Product              @relation(fields: [product_id, store_id], references: [id, store_id], onDelete: Cascade)
+  option_values    VariantOptionValue[]
+  inventory        Inventory?
+  cart_items       CartItem[]
+  order_items      OrderItem[]
+  inventory_moves  InventoryMovement[]
 
-  product    Product             @relation(fields: [product_id], references: [id], onDelete: Cascade)
-  inventory  Inventory?
-  orderItems OrderItem[]
-  movements  InventoryMovement[]
-
-  @@unique([product_id, sku])
+  @@unique([store_id, sku])
+  @@unique([store_id, barcode])
+  @@unique([id, store_id])
   @@index([product_id])
-  @@index([sku])
+  @@index([store_id, is_default])
+  @@index([store_id, product_id, is_active])
+}
+
+model VariantOptionValue {
+  store_id        Int
+  variant_id      Int
+  option_value_id Int
+  store           Store              @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  variant         ProductVariant     @relation(fields: [variant_id, store_id], references: [id, store_id], onDelete: Cascade)
+  option_value    ProductOptionValue @relation(fields: [option_value_id, store_id], references: [id, store_id], onDelete: Cascade)
+
+  @@id([store_id, variant_id, option_value_id])
+  @@index([option_value_id])
 }
 
 model Inventory {
-  id                  Int      @id @default(autoincrement())
+  id                  Int            @id @default(autoincrement())
   store_id            Int
-  variant_id          Int      @unique
-  total_quantity      Int      @default(0)
-  available_quantity  Int      @default(0)
-  reserved_quantity   Int      @default(0)
-  low_stock_threshold Int      @default(5)
-  updated_at          DateTime @updatedAt
+  variant_id          Int
+  total_quantity      Int            @default(0)
+  available_quantity  Int            @default(0)
+  reserved_quantity   Int            @default(0)
+  low_stock_threshold Int            @default(5)
+  updated_at          DateTime       @updatedAt
+  store               Store          @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  variant             ProductVariant @relation(fields: [variant_id, store_id], references: [id, store_id], onDelete: Cascade)
 
-  store   Store          @relation(fields: [store_id], references: [id], onDelete: Cascade)
-  variant ProductVariant @relation(fields: [variant_id], references: [id], onDelete: Cascade)
-
-  @@index([store_id])
+  @@unique([variant_id, store_id])
+  @@index([store_id, variant_id])
+  @@index([store_id, available_quantity])
 }
 
 model InventoryMovement {
-  id              Int      @id @default(autoincrement())
+  id              Int                   @id @default(autoincrement())
   store_id        Int
   variant_id      Int
+  order_id        Int?
+  actor_user_id   Int?
+  type            InventoryMovementType
   quantity_change Int
+  reason          String?
+  reference_type  String?
   reference_id    Int?
-  created_at      DateTime @default(now())
+  created_at      DateTime              @default(now())
+  store           Store                 @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  variant         ProductVariant        @relation(fields: [variant_id, store_id], references: [id, store_id], onDelete: Cascade)
+  order           Order?                @relation(fields: [order_id, store_id], references: [id, store_id], onDelete: NoAction)
+  actor           User?                 @relation(fields: [actor_user_id], references: [id], onDelete: SetNull)
 
-  // Relations
-  movement_type_id Int
-  type             MovementType   @relation(fields: [movement_type_id], references: [id])
-  variant          ProductVariant @relation(fields: [variant_id], references: [id], onDelete: Cascade)
-
-  @@index([store_id])
+  @@index([store_id, type, created_at])
   @@index([variant_id])
 }
 
-// ==========================================
-// 4. العملاء والطلبات
-// ==========================================
-
 model Customer {
-  id                      Int       @id @default(autoincrement())
-  store_id                Int
-  customer_phone          String
-  customer_email          String?
-  customer_gender         String?
-  customer_birth_date     DateTime?
-  customer_city           String?
-  customer_region         String?
-  location_on_googlemap   String?
-  customer_notes_to_store String?
-  is_active               Boolean   @default(true)
-  created_at              DateTime  @default(now())
-  updated_at              DateTime  @updatedAt
+  id                Int               @id @default(autoincrement())
+  store_id          Int
+  first_name        String?
+  last_name         String?
+  email             String?
+  phone             String?
+  gender            String?
+  birth_date        DateTime?
+  notes             String?
+  status            CustomerStatus    @default(ACTIVE)
+  accepts_marketing Boolean           @default(false)
+  created_at        DateTime          @default(now())
+  updated_at        DateTime          @updatedAt
+  store             Store             @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  addresses         CustomerAddress[]
+  carts             Cart[]
+  orders            Order[]
+  coupon_usages     CouponUsage[]
 
-  store  Store   @relation(fields: [store_id], references: [id], onDelete: Cascade)
-  orders Order[]
+  @@unique([store_id, email])
+  @@unique([store_id, phone])
+  @@unique([id, store_id])
+  @@index([store_id, status])
+  @@index([store_id, created_at])
+}
 
-  @@index([store_id])
+model CustomerAddress {
+  id              Int         @id @default(autoincrement())
+  store_id        Int
+  customer_id     Int
+  type            AddressType @default(OTHER)
+  full_name       String
+  phone           String?
+  city            String
+  region          String?
+  street_line_1   String
+  street_line_2   String?
+  postal_code     String?
+  google_maps_url String?
+  is_default      Boolean     @default(false)
+  created_at      DateTime    @default(now())
+  updated_at      DateTime    @updatedAt
+  store           Store       @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  customer        Customer    @relation(fields: [customer_id, store_id], references: [id, store_id], onDelete: Cascade)
+
+  @@unique([id, store_id])
+  @@index([customer_id])
+}
+
+model Cart {
+  id             Int           @id @default(autoincrement())
+  store_id       Int
+  customer_id    Int?
+  session_id     String?
+  status         CartStatus    @default(OPEN)
+  currency_code  String        @default("LYD")
+  subtotal       Decimal       @default(0)
+  discount_total Decimal       @default(0)
+  shipping_total Decimal       @default(0)
+  grand_total    Decimal       @default(0)
+  expires_at     DateTime?
+  created_at     DateTime      @default(now())
+  updated_at     DateTime      @updatedAt
+  store          Store         @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  customer       Customer?     @relation(fields: [customer_id, store_id], references: [id, store_id], onDelete: NoAction)
+  items          CartItem[]
+  order          Order?
+  coupon_usages  CouponUsage[]
+
+  @@unique([store_id, session_id])
+  @@unique([id, store_id])
+  @@index([store_id, status])
+}
+
+model CartItem {
+  id          Int            @id @default(autoincrement())
+  store_id    Int
+  cart_id     Int
+  product_id  Int
+  variant_id  Int
+  quantity    Int
+  unit_price  Decimal
+  total_price Decimal
+  created_at  DateTime       @default(now())
+  updated_at  DateTime       @updatedAt
+  store       Store          @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  cart        Cart           @relation(fields: [cart_id, store_id], references: [id, store_id], onDelete: Cascade)
+  // Cascade: إذا حُذف المنتج أو الـ variant، يُحذف الـ CartItem تلقائياً (المنتج المحذوف لا يجب أن يبقى في السلة)
+  product     Product        @relation(fields: [product_id, store_id], references: [id, store_id], onDelete: Cascade)
+  variant     ProductVariant @relation(fields: [variant_id, store_id], references: [id, store_id], onDelete: Cascade)
+
+  @@unique([cart_id, variant_id])
+  @@index([variant_id])
+}
+
+model Coupon {
+  id                       Int           @id @default(autoincrement())
+  store_id                 Int
+  code                     String
+  description              String?
+  type                     DiscountType
+  value                    Decimal
+  minimum_order_amount     Decimal?
+  maximum_discount_amount  Decimal?
+  usage_limit              Int?
+  usage_limit_per_customer Int?
+  starts_at                DateTime?
+  ends_at                  DateTime?
+  is_active                Boolean       @default(true)
+  created_at               DateTime      @default(now())
+  updated_at               DateTime      @updatedAt
+  store                    Store         @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  usages                   CouponUsage[]
+
+  @@unique([store_id, code])
+  @@unique([id, store_id])
+}
+
+model CouponUsage {
+  id              Int       @id @default(autoincrement())
+  store_id        Int
+  coupon_id       Int
+  customer_id     Int?
+  cart_id         Int?
+  order_id        Int?
+  discount_amount Decimal
+  created_at      DateTime  @default(now())
+  store           Store     @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  coupon          Coupon    @relation(fields: [coupon_id, store_id], references: [id, store_id], onDelete: Cascade)
+  customer        Customer? @relation(fields: [customer_id, store_id], references: [id, store_id], onDelete: NoAction)
+  cart            Cart?     @relation(fields: [cart_id, store_id], references: [id, store_id], onDelete: NoAction)
+  order           Order?    @relation(fields: [order_id, store_id], references: [id, store_id], onDelete: NoAction)
+
+  @@index([store_id, created_at])
 }
 
 model Order {
-  id              Int      @id @default(autoincrement())
-  store_id        Int
-  customer_id     Int
-  order_number    String   @unique
-  cart_id         Int?
-  order_source    String?
-  sub_total       Decimal
-  discount_amount Decimal  @default(0)
-  shipping_cost   Decimal  @default(0)
-  grand_total     Decimal
-  tags            Json?
-  customer_notes  String?
-  admin_notes     String?
-  created_at      DateTime @default(now())
-  updated_at      DateTime @updatedAt
+  id                  Int                  @id @default(autoincrement())
+  store_id            Int
+  customer_id         Int?
+  cart_id             Int?
+  order_number        String
+  source              OrderSource          @default(STOREFRONT)
+  status              ShipmentStatus       @default(PENDING)
+  payment_status      PaymentStatus        @default(UNPAID)
+  currency_code       String               @default("LYD")
+  customer_name       String
+  customer_email      String?
+  customer_phone      String
+  subtotal            Decimal
+  discount_total      Decimal              @default(0)
+  shipping_total      Decimal              @default(0)
+  grand_total         Decimal
+  notes_from_customer String?
+  notes_internal      String?
+  placed_at           DateTime             @default(now())
+  updated_at          DateTime             @updatedAt
+  store               Store                @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  customer            Customer?            @relation(fields: [customer_id, store_id], references: [id, store_id], onDelete: NoAction)
+  cart                Cart?                @relation(fields: [cart_id, store_id], references: [id, store_id], onDelete: NoAction)
+  items               OrderItem[]
+  addresses           OrderAddress[]
+  payments            PaymentTransaction[]
+  shipments           Shipment[]
+  timeline            OrderTimeline[]
+  inventory_moves     InventoryMovement[]
+  coupon_usages       CouponUsage[]
 
-  // Relations
-  status_id    Int
-  order_status OrderStatus @relation(fields: [status_id], references: [id])
-
-  payment_id     Int
-  payment_status PaymentStatus @relation(fields: [payment_id], references: [id])
-
-  store     Store           @relation(fields: [store_id], references: [id], onDelete: Cascade)
-  customer  Customer        @relation(fields: [customer_id], references: [id])
-  items     OrderItem[]
-  addresses OrderAddress[]
-  payments  OrderPayment[]
-  histories OrderHistory[]
-  shipments OrderShipment[]
-
-  @@index([store_id])
+  @@unique([store_id, order_number])
+  @@unique([cart_id, store_id])
+  @@unique([id, store_id])
+  @@index([store_id, status, placed_at])
+  @@index([store_id, customer_id, status])
   @@index([customer_id])
 }
 
 model OrderItem {
-  id           Int     @id @default(autoincrement())
-  order_id     Int
-  product_id   Int
-  variant_id   Int
-  product_name String
-  price        Decimal
-  quantity     Int
-  total        Decimal
-  options      Json?
-
-  order   Order          @relation(fields: [order_id], references: [id], onDelete: Cascade)
-  product Product        @relation(fields: [product_id], references: [id])
-  variant ProductVariant @relation(fields: [variant_id], references: [id])
+  id             Int            @id @default(autoincrement())
+  store_id       Int
+  order_id       Int
+  product_id     Int
+  variant_id     Int
+  product_name   String
+  variant_title  String?
+  sku            String
+  quantity       Int
+  unit_price     Decimal
+  discount_total Decimal        @default(0)
+  line_total     Decimal
+  metadata       Json?
+  store          Store          @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  order          Order          @relation(fields: [order_id, store_id], references: [id, store_id], onDelete: Cascade)
+  // NoAction: المنتجات في الطلبات المؤرشفة يجب ألا تُحذف — استخدم Soft Delete على مستوى التطبيق
+  product        Product        @relation(fields: [product_id, store_id], references: [id, store_id], onDelete: NoAction)
+  variant        ProductVariant @relation(fields: [variant_id, store_id], references: [id, store_id], onDelete: NoAction)
 
   @@index([order_id])
 }
 
 model OrderAddress {
-  id       Int    @id @default(autoincrement())
-  order_id Int
-  name     String
-  phone    String
-  city     String
-  street   String
+  id              Int         @id @default(autoincrement())
+  store_id        Int
+  order_id        Int
+  type            AddressType
+  full_name       String
+  phone           String?
+  city            String
+  region          String?
+  street_line_1   String
+  street_line_2   String?
+  postal_code     String?
+  google_maps_url String?
+  store           Store       @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  order           Order       @relation(fields: [order_id, store_id], references: [id, store_id], onDelete: Cascade)
 
-  order Order @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  @@index([order_id, type])
 }
 
-model OrderPayment {
-  id             Int       @id @default(autoincrement())
-  order_id       Int
-  payment_method String
-  transaction_id String?
-  payment_link   String?
-  paid_at        DateTime?
+model PaymentTransaction {
+  id                    Int                      @id @default(autoincrement())
+  store_id              Int
+  order_id              Int
+  method                PaymentMethod
+  status                PaymentTransactionStatus @default(PENDING)
+  amount                Decimal
+  currency_code         String
+  provider              String?
+  transaction_reference String?
+  payment_link          String?
+  paid_at               DateTime?
+  raw_payload           Json?
+  created_at            DateTime                 @default(now())
+  updated_at            DateTime                 @updatedAt
+  store                 Store                    @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  order                 Order                    @relation(fields: [order_id, store_id], references: [id, store_id], onDelete: Cascade)
 
-  order Order @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  @@index([order_id])
+  @@index([status, created_at])
 }
 
-model OrderHistory {
-  id                Int      @id @default(autoincrement())
-  order_id          Int
-  action            String
-  description       String?
-  created_action_at DateTime @default(now())
+model Shipment {
+  id                   Int            @id @default(autoincrement())
+  store_id             Int
+  order_id             Int
+  status               ShipmentStatus @default(PENDING)
+  provider             String
+  service_name         String?
+  tracking_number      String?
+  shipping_cost        Decimal        @default(0)
+  shipped_at           DateTime?
+  delivered_at         DateTime?
+  expected_delivery_at DateTime?
+  created_at           DateTime       @default(now())
+  updated_at           DateTime       @updatedAt
+  store                Store          @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  order                Order          @relation(fields: [order_id, store_id], references: [id, store_id], onDelete: Cascade)
 
-  order Order @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  @@index([order_id])
 }
 
-model OrderShipment {
-  id                     Int       @id @default(autoincrement())
-  order_id               Int
-  shipping_provider      String
-  tracking_number        String?
-  expected_delivery_date DateTime?
+model OrderTimeline {
+  id            Int          @id @default(autoincrement())
+  store_id      Int
+  order_id      Int
+  actor_user_id Int?
+  event         String
+  from_status   ShipmentStatus?
+  to_status     ShipmentStatus?
+  note          String?
+  payload       Json?
+  created_at    DateTime     @default(now())
+  store         Store        @relation(fields: [store_id], references: [id], onDelete: Cascade)
+  order         Order        @relation(fields: [order_id, store_id], references: [id, store_id], onDelete: Cascade)
+  actor         User?        @relation(fields: [actor_user_id], references: [id], onDelete: SetNull)
 
-  order Order @relation(fields: [order_id], references: [id], onDelete: Cascade)
+  @@index([order_id, created_at])
 }
